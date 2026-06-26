@@ -1,0 +1,299 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- 顶部统计 ---- */
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 60px;
+}
+.statRight {
+  align-items: flex-end;
+}
+.statNum {
+  font-size: 13px;
+  font-weight: 700;
+}
+.statLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.progressTrack {
+  flex: 1;
+  height: 7px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  border-radius: 99px;
+  transition: width 0.35s ease;
+}
+
+.sourceChip {
+  font-size: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 8px 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.linkBtn {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  font-size: 12px;
+  padding: 0;
+  margin-left: auto;
+}
+
+.hint {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.hint b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* ---- 题面卡 ---- */
+.prompt {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.promptTag {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 4px 13px;
+  border-radius: 99px;
+}
+.promptValue {
+  font-size: clamp(60px, 17vw, 104px);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+/* ---- 选项组 ---- */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.groupLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+}
+.option {
+  position: relative;
+  padding: 14px 8px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 22px;
+  font-weight: 600;
+  transition: var(--t-fast);
+  min-height: 56px;
+}
+.option:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.correct {
+  border-color: var(--correct);
+  background: var(--correct-soft);
+  color: var(--correct);
+}
+.wrong {
+  border-color: var(--incorrect);
+  background: var(--incorrect-soft);
+  color: var(--incorrect);
+}
+.dim {
+  opacity: 0.4;
+}
+.mark {
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  font-size: 12px;
+}
+
+/* ---- 主按钮 ---- */
+.primary {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  transition: var(--t-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  transform: translateY(-1px);
+}
+.primary:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+.kbd {
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.22);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+/* ---- 反馈 ---- */
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+}
+.fbCorrect {
+  border-color: var(--correct);
+  background: var(--correct-soft);
+}
+.fbWrong {
+  border-color: var(--incorrect);
+  background: var(--incorrect-soft);
+}
+.fbHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fbIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.fbCorrect .fbIcon {
+  background: var(--correct);
+}
+.fbWrong .fbIcon {
+  background: var(--incorrect);
+}
+.fbText {
+  font-weight: 700;
+  font-size: 15px;
+  flex: 1;
+}
+.soundBtn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: var(--t-fast);
+}
+.soundBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.answer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.answerCell {
+  flex: 1;
+  min-width: 84px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  font-size: 24px;
+  font-weight: 600;
+}
+.answerLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ---- 空态 ---- */
+.empty {
+  text-align: center;
+  padding: 56px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.emptyTitle {
+  font-size: 20px;
+  font-weight: 700;
+}
+.emptyHint {
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 280px;
+}
