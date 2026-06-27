@@ -1,15 +1,13 @@
 name: Release
 
 # 打 v 开头的 tag（如 v0.1.0）时触发：构建 Windows 安装包与 Android APK 并发布到 Release。
-# 也可在 Actions 页面手动触发（workflow_dispatch）。
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
-# 关键：授予写 Release 的权限，否则 tauri-action 创建 Release 会报
-# "Resource not accessible by integration"。
+# 授予写 Release 的权限，否则创建 Release 会报 "Resource not accessible by integration"。
 permissions:
   contents: write
 
@@ -42,7 +40,7 @@ jobs:
           prerelease: false
 
   android:
-    name: Android APK
+    name: Android APK (arm64, release)
     needs: desktop
     runs-on: ubuntu-latest
     env:
@@ -66,7 +64,7 @@ jobs:
       - name: Rust 工具链（安卓 target）
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android
       - name: Rust 缓存
         uses: swatinem/rust-cache@v2
         with:
@@ -79,14 +77,46 @@ jobs:
         run: npx tauri android init
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
-      - name: 构建 APK（debug 签名，可直接安装到手机）
-        run: npx tauri android build --debug --apk
+      # release 构建：优化 + 裁剪符号，只打 arm64（现代手机通用），体积约 20–30MB。
+      - name: 构建 release APK（arm64）
+        run: npx tauri android build --apk --target aarch64
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+      # release APK 必须签名才能安装。有仓库 Secrets 就用它（签名固定、可原地升级），
+      # 没有就临时生成一个（可安装，但每次构建签名不同，升级前要先卸载旧版）。
+      - name: 签名 APK
+        id: sign
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          KS="$RUNNER_TEMP/release.keystore"
+          SP="${KS_PASS:-android}"; AL="${KEY_ALIAS:-upload}"; KP="${KEY_PASS:-android}"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$KS"
+            echo "使用仓库 Secrets 的 keystore（签名固定，可原地升级）"
+          else
+            keytool -genkeypair -v -keystore "$KS" -alias "$AL" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$SP" -keypass "$KP" -dname "CN=kana-trainer"
+            echo "::warning::未配置签名 Secrets，使用临时 keystore：可安装，但每次构建签名不同，升级前需先卸载旧版。"
+          fi
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          UNSIGNED="$(find src-tauri/gen/android -path '*release*' -name '*.apk' | grep -vi signed | head -1)"
+          echo "未签名 APK: $UNSIGNED"
+          OUT="$RUNNER_TEMP/kana-trainer-${{ github.ref_name }}-arm64.apk"
+          "$BT/zipalign" -f 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$SP" --ks-key-alias "$AL" \
+            --key-pass "pass:$KP" --out "$OUT" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify "$OUT" && echo "签名校验通过"
+          ls -la "$OUT"
+          echo "apk=$OUT" >> "$GITHUB_OUTPUT"
       - name: 上传 APK 到 Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          files: ${{ steps.sign.outputs.apk }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
