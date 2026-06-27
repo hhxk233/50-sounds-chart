@@ -98,7 +98,7 @@ export default function App() {
         {tab === 'settings' && <SettingsView />}
       </main>
 
-      <footer className={styles.footer}>本地浏览器存档 · Web Speech 发音 · Hepburn / 训令式</footer>
+      <footer className={styles.footer}>本地存档 · 内置离线发音 · Hepburn / 训令式</footer>
     </div>
   )
 }

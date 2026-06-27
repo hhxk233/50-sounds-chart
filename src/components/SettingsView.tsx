@@ -89,7 +89,7 @@ export default function SettingsView() {
       </section>
 
       <section className={s.card}>
-        <SwitchRow title="读音题型" sub="出「听发音选假名」「看假名选发音」(需系统有日语语音)">
+        <SwitchRow title="读音题型" sub="出「听发音选假名」「看假名选发音」(内置离线发音)">
           <Toggle checked={st.includeAudio} onChange={st.setIncludeAudio} />
         </SwitchRow>
         <div className={s.divider} />
