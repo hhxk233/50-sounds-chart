@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { KANA_FACES, cardById } from '../data/decks'
 import { exampleFor } from '../data/examples'
 import { useQuiz } from '../hooks/useQuiz'
@@ -22,11 +22,8 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
   const favorited = useProgress((st) => (question ? question.card.id in st.favorites : false))
   const toggleFavorite = useProgress((st) => st.toggleFavorite)
 
-  const [hintOut, setHintOut] = useState<Set<string>>(new Set())
-
-  // 新题：题面是读音则自动播放；同时清掉提示
+  // 新题：题面是读音则自动播放
   useEffect(() => {
-    setHintOut(new Set())
     if (question && sound && phase === 'answering' && question.promptFace === 'audio') {
       playCard(question.card)
     }
@@ -57,16 +54,14 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
       } else if (/^[1-9]$/.test(e.key) && phase === 'answering') {
         const i = Number(e.key) - 1
         if (i < question.optionIds.length) {
-          const id = question.optionIds[i]
-          if (hintOut.has(id)) return
           e.preventDefault()
-          quiz.select(id)
+          quiz.select(question.optionIds[i])
         }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, selectedId, question, quiz, hintOut])
+  }, [phase, selectedId, question, quiz])
 
   if (!question) return null
 
@@ -77,15 +72,6 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
   const promptIsAudio = promptMeta.kind === 'audio'
   const targetIsAudio = targetMeta.kind === 'audio'
   const example = exampleFor(question.card.hiragana)
-
-  // 提示：随机划掉约一半错误选项（不动已选的）
-  const giveHint = () => {
-    if (phase !== 'answering' || hintOut.size > 0) return
-    const wrongs = question.optionIds.filter((id) => id !== correctId && id !== selectedId)
-    const n = Math.floor((question.optionIds.length - 1) / 2)
-    const picked = [...wrongs].sort(() => Math.random() - 0.5).slice(0, n)
-    if (picked.length) setHintOut(new Set(picked))
-  }
 
   return (
     <div className={s.screen}>
@@ -112,9 +98,8 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
         {phase === 'answering' && (
           <button
             className={x.hintBtn}
-            onClick={giveHint}
-            disabled={hintOut.size > 0}
-            title="提示：划掉部分错误选项"
+            onClick={() => quiz.hint()}
+            title="提示：直接看答案（本题算错）"
           >
             💡
           </button>
@@ -146,7 +131,6 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           const c = cardById.get(id)!
           const isSel = selectedId === id
           const isCorrect = id === correctId
-          const isOut = phase === 'answering' && hintOut.has(id)
           let cls = s.option
           if (phase === 'answering') {
             if (isSel) cls += ` ${s.selected}`
@@ -157,15 +141,12 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           } else {
             cls += ` ${s.dim}`
           }
-          if (isOut) cls += ` ${x.hintOut}`
-          const disabled = (phase === 'revealed' && !targetIsAudio) || isOut
           return (
             <button
               key={id}
               className={`${cls} ${targetIsAudio ? s.optAudio : ''}`}
-              disabled={disabled}
+              disabled={phase === 'revealed' && !targetIsAudio}
               onClick={() => {
-                if (isOut) return
                 if (targetIsAudio) playCard(c)
                 if (phase === 'answering') quiz.select(id)
               }}

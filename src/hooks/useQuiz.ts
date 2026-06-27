@@ -100,17 +100,28 @@ export function useQuiz() {
     if (phase === 'answering') setSelectedId(id)
   }
 
-  function confirm() {
-    if (!question || phase !== 'answering' || !selectedId) return
-    const sel = cardById.get(selectedId)
-    if (!sel) return
-    const correct = answerMatches(question, sel, faceValue)
+  function recordResult(correct: boolean) {
+    if (!question) return
     setPhase('revealed')
     setLastCorrect(correct)
     record(question.card.id, correct)
     setSession((s) =>
       s ? { ...s, results: [...s.results, { cardId: question.card.id, correct }] } : s,
     )
+  }
+
+  function confirm() {
+    if (!question || phase !== 'answering' || !selectedId) return
+    const sel = cardById.get(selectedId)
+    if (!sel) return
+    recordResult(answerMatches(question, sel, faceValue))
+  }
+
+  // 提示：直接揭晓答案，本题判错。
+  function hint() {
+    if (!question || phase !== 'answering') return
+    setSelectedId(null)
+    recordResult(false)
   }
 
   function next() {
@@ -159,6 +170,7 @@ export function useQuiz() {
     startMistakes,
     select,
     confirm,
+    hint,
     next,
     retry,
     exit,
