@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { kanaItems } from '../data/kana'
 import { useSettings } from '../store/settings'
-import { useSpeech } from '../hooks/useSpeech'
+import { playSound } from '../audio'
 import type { KanaItem, KanaType } from '../types'
 import s from './Chart.module.css'
 
@@ -61,22 +61,18 @@ const SECTIONS: Section[] = [
 
 export default function Chart() {
   const style = useSettings((st) => st.romajiStyle)
-  const { speak, supported } = useSpeech()
 
   return (
     <div className={s.wrap}>
       <p className={s.intro}>
-        完整五十音图{supported ? '，点任意假名听发音' : ''}。罗马音按当前设置（
+        完整五十音图，点任意假名听发音。罗马音按当前设置（
         {style === 'hepburn' ? 'Hepburn 平文式' : '训令式'}）显示。
       </p>
 
       {SECTIONS.map((sec) => (
         <section key={sec.type} className={s.section}>
           <h3 className={s.sectionTitle}>{sec.label}</h3>
-          <div
-            className={s.grid}
-            style={{ gridTemplateColumns: `30px repeat(${sec.cols}, 1fr)` }}
-          >
+          <div className={s.grid} style={{ gridTemplateColumns: `30px repeat(${sec.cols}, 1fr)` }}>
             <div className={s.corner} />
             {sec.heads.map((h) => (
               <div key={h} className={`${s.head} jp`}>
@@ -91,8 +87,8 @@ export default function Chart() {
                     <button
                       key={ci}
                       className={s.cell}
-                      onClick={() => speak(k.hiragana)}
-                      title={supported ? '点击发音' : undefined}
+                      onClick={() => playSound(k.romaji.hepburn, k.hiragana)}
+                      title="点击发音"
                     >
                       <span className={`${s.hira} jp`}>{k.hiragana}</span>
                       <span className={`${s.kata} jp`}>{k.katakana}</span>

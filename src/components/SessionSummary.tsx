@@ -1,11 +1,10 @@
 import { cardById } from '../data/decks'
 import { useQuiz } from '../hooks/useQuiz'
-import { useSpeech } from '../hooks/useSpeech'
+import { playCard } from '../audio'
 import s from './Quiz.module.css'
 
 export default function SessionSummary({ quiz }: { quiz: ReturnType<typeof useQuiz> }) {
   const { session, correctCount, total, faceValue } = quiz
-  const { speak, supported } = useSpeech()
   if (!session) return null
 
   const pct = total ? Math.round((correctCount / total) * 100) : 0
@@ -38,11 +37,9 @@ export default function SessionSummary({ quiz }: { quiz: ReturnType<typeof useQu
                   <span className="jp">{c.katakana}</span>
                   <span className={`${s.missedRomaji} mono`}>{faceValue(c, 'romaji')}</span>
                 </span>
-                {supported && (
-                  <button className={s.soundBtn} onClick={() => speak(c.audioText)}>
-                    🔊
-                  </button>
-                )}
+                <button className={s.soundBtn} onClick={() => playCard(c)}>
+                  🔊
+                </button>
               </div>
             )
           })}

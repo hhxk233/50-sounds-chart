@@ -1,6 +1,6 @@
 import { selectMistakeList, useProgress } from '../store/progress'
 import { cardById } from '../data/decks'
-import { useSpeech } from '../hooks/useSpeech'
+import { playCard } from '../audio'
 import s from './Mistakes.module.css'
 
 function timeAgo(ts: number): string {
@@ -21,7 +21,6 @@ export default function MistakeBook({
   const list = useProgress(selectMistakeList)
   const clearCard = useProgress((st) => st.clearCard)
   const resetAll = useProgress((st) => st.resetAll)
-  const { speak, supported } = useSpeech()
 
   if (list.length === 0) {
     return (
@@ -81,11 +80,9 @@ export default function MistakeBook({
                 </div>
               </div>
               <div className={s.itemActions}>
-                {supported && (
-                  <button className={s.iconBtn} title="发音" onClick={() => speak(card.audioText)}>
-                    🔊
-                  </button>
-                )}
+                <button className={s.iconBtn} title="发音" onClick={() => playCard(card)}>
+                  🔊
+                </button>
                 <button
                   className={s.iconBtn}
                   title="标记为已掌握（移出错题本）"

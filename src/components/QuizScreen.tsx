@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { KANA_FACES, cardById } from '../data/decks'
 import { useQuiz } from '../hooks/useQuiz'
 import { useSettings } from '../store/settings'
-import { useSpeech } from '../hooks/useSpeech'
+import { playCard } from '../audio'
 import type { FaceKey, FaceMeta } from '../types'
 import s from './Quiz.module.css'
 
@@ -16,19 +16,18 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
   const { question, selectedId, phase, lastCorrect, faceValue, current, total, correctCount, answered } =
     quiz
   const sound = useSettings((st) => st.sound)
-  const { speak, supported } = useSpeech()
 
   // 新题：题面是读音则自动播放
   useEffect(() => {
-    if (question && sound && supported && phase === 'answering' && question.promptFace === 'audio') {
-      speak(question.card.audioText)
+    if (question && sound && phase === 'answering' && question.promptFace === 'audio') {
+      playCard(question.card)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
 
   // 揭晓：自动播放正确音
   useEffect(() => {
-    if (phase === 'revealed' && question && sound && supported) speak(question.card.audioText)
+    if (phase === 'revealed' && question && sound) playCard(question.card)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
@@ -46,7 +45,7 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
         }
       } else if (e.key === ' ') {
         e.preventDefault()
-        speak(question.card.audioText)
+        playCard(question.card)
       } else if (/^[1-9]$/.test(e.key) && phase === 'answering') {
         const i = Number(e.key) - 1
         if (i < question.optionIds.length) {
@@ -57,7 +56,7 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, selectedId, question, quiz, speak])
+  }, [phase, selectedId, question, quiz])
 
   if (!question) return null
 
@@ -94,7 +93,7 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
         <div className={s.prompt}>
           <button
             className={s.audioBig}
-            onClick={() => speak(question.card.audioText)}
+            onClick={() => playCard(question.card)}
             title="播放发音（空格重听）"
           >
             <span className={s.audioBigIcon}>🔊</span>
@@ -132,7 +131,7 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
               className={`${cls} ${targetIsAudio ? s.optAudio : ''}`}
               disabled={textDisabled}
               onClick={() => {
-                if (targetIsAudio) speak(c.audioText)
+                if (targetIsAudio) playCard(c)
                 if (phase === 'answering') quiz.select(id)
               }}
             >
@@ -164,11 +163,9 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           <div className={s.fbHead}>
             <span className={s.fbIcon}>{lastCorrect ? '✓' : '✗'}</span>
             <span className={s.fbText}>{lastCorrect ? '正确！' : '记一下，下次就对了'}</span>
-            {supported && (
-              <button className={s.soundBtn} onClick={() => speak(question.card.audioText)}>
-                🔊 发音
-              </button>
-            )}
+            <button className={s.soundBtn} onClick={() => playCard(question.card)}>
+              🔊 发音
+            </button>
           </div>
           <div className={s.answer}>
             {KANA_FACES.filter((f) => f.kind === 'text').map((f) => (

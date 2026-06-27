@@ -21,7 +21,8 @@ export interface SessionState {
   results: AnswerResult[]
 }
 
-const audioSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
+// 读音用打包音频，始终可用（不再依赖系统是否有日语语音）。
+const audioAvailable = true
 
 // 罗马音与读音互为同义，配在一起太直白——禁止这对（两个方向）。
 const EXCLUDE_PAIRS: readonly FacePair[] = [['romaji', 'audio']]
@@ -41,7 +42,7 @@ export function useQuiz() {
       'hiragana',
       'katakana',
       'romaji',
-      ...(includeAudio && audioSupported ? (['audio'] as const) : []),
+      ...(includeAudio && audioAvailable ? (['audio'] as const) : []),
     ],
     [includeAudio],
   )
@@ -145,7 +146,6 @@ export function useQuiz() {
     phase,
     lastCorrect,
     faceValue,
-    audioSupported,
     current: session ? session.index + 1 : 0,
     total: session ? session.length : 0,
     correctCount,
