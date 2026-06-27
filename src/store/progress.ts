@@ -9,12 +9,12 @@ export interface MistakeRec {
 
 export interface ProgressState {
   mistakes: Record<string, MistakeRec>
+  favorites: Record<string, number> // cardId -> 收藏时间戳
   totalAnswered: number
   totalCorrect: number
-  /** 记录一次作答（按卡 id 累计 错误/总数）。 */
   record: (cardId: string, correct: boolean) => void
-  /** 从错题本移除某卡（清零其错误统计）。 */
-  clearCard: (cardId: string) => void
+  toggleFavorite: (cardId: string) => void
+  clearCard: (cardId: string) => void // 从复习里彻底移除（错题统计 + 收藏）
   resetAll: () => void
 }
 
@@ -22,6 +22,7 @@ export const useProgress = create<ProgressState>()(
   persist(
     (set) => ({
       mistakes: {},
+      favorites: {},
       totalAnswered: 0,
       totalCorrect: 0,
       record: (cardId, correct) =>
@@ -38,20 +39,39 @@ export const useProgress = create<ProgressState>()(
             totalCorrect: s.totalCorrect + (correct ? 1 : 0),
           }
         }),
+      toggleFavorite: (cardId) =>
+        set((s) => {
+          const next = { ...s.favorites }
+          if (next[cardId]) delete next[cardId]
+          else next[cardId] = Date.now()
+          return { favorites: next }
+        }),
       clearCard: (cardId) =>
         set((s) => {
-          if (!s.mistakes[cardId]) return s
-          const next = { ...s.mistakes }
-          delete next[cardId]
-          return { mistakes: next }
+          const m = { ...s.mistakes }
+          delete m[cardId]
+          const f = { ...s.favorites }
+          delete f[cardId]
+          return { mistakes: m, favorites: f }
         }),
-      resetAll: () => set({ mistakes: {}, totalAnswered: 0, totalCorrect: 0 }),
+      resetAll: () => set({ mistakes: {}, favorites: {} }),
     }),
     {
       name: 'kana-trainer:progress',
-      version: 1,
+      version: 2,
+      // v1 → v2：新增 favorites
+      migrate: (persisted) => {
+        const s = (persisted ?? {}) as Partial<ProgressState>
+        return {
+          mistakes: s.mistakes ?? {},
+          favorites: s.favorites ?? {},
+          totalAnswered: s.totalAnswered ?? 0,
+          totalCorrect: s.totalCorrect ?? 0,
+        } as ProgressState
+      },
       partialize: (s) => ({
         mistakes: s.mistakes,
+        favorites: s.favorites,
         totalAnswered: s.totalAnswered,
         totalCorrect: s.totalCorrect,
       }),
@@ -59,10 +79,35 @@ export const useProgress = create<ProgressState>()(
   ),
 )
 
-/** 选择器：错题（wrong>0）按错误次数降序。 */
-export function selectMistakeList(s: ProgressState) {
-  return Object.entries(s.mistakes)
-    .filter(([, r]) => r.wrong > 0)
-    .sort((a, b) => b[1].wrong - a[1].wrong || b[1].lastSeen - a[1].lastSeen)
-    .map(([id, rec]) => ({ id, ...rec }))
+export interface ReviewItem {
+  id: string
+  wrong: number
+  total: number
+  lastSeen: number
+  favorited: boolean
+}
+
+/** 复习列表：答错过(wrong>0) 或 已收藏的音，按错误次数→最近降序。 */
+export function selectReviewList(s: ProgressState): ReviewItem[] {
+  const ids = new Set<string>([
+    ...Object.keys(s.mistakes).filter((id) => s.mistakes[id].wrong > 0),
+    ...Object.keys(s.favorites),
+  ])
+  const recency = (id: string) => Math.max(s.mistakes[id]?.lastSeen ?? 0, s.favorites[id] ?? 0)
+  return [...ids]
+    .map((id) => ({
+      id,
+      wrong: s.mistakes[id]?.wrong ?? 0,
+      total: s.mistakes[id]?.total ?? 0,
+      lastSeen: s.mistakes[id]?.lastSeen ?? 0,
+      favorited: id in s.favorites,
+    }))
+    .sort((a, b) => b.wrong - a.wrong || recency(b.id) - recency(a.id))
+}
+
+export function selectReviewCount(s: ProgressState): number {
+  return new Set([
+    ...Object.keys(s.mistakes).filter((id) => s.mistakes[id].wrong > 0),
+    ...Object.keys(s.favorites),
+  ]).size
 }

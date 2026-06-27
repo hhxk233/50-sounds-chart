@@ -84,11 +84,16 @@ export function useQuiz() {
     setLastCorrect(null)
   }
 
+  // 复习 = 答错过 ∪ 已收藏
   function startMistakes(length: number) {
-    const m = useProgress.getState().mistakes
-    const ids = Object.keys(m).filter((id) => m[id].wrong > 0 && cardById.has(id))
-    if (ids.length === 0) return
-    startSession({ id: 'mistakes', label: '错题复习', cardIds: ids }, Math.min(length, ids.length))
+    const st = useProgress.getState()
+    const ids = new Set<string>([
+      ...Object.keys(st.mistakes).filter((id) => st.mistakes[id].wrong > 0 && cardById.has(id)),
+      ...Object.keys(st.favorites).filter((id) => cardById.has(id)),
+    ])
+    const arr = [...ids]
+    if (arr.length === 0) return
+    startSession({ id: 'review', label: '复习', cardIds: arr }, Math.min(length, arr.length))
   }
 
   function select(id: string) {

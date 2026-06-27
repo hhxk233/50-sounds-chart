@@ -1,0 +1,106 @@
+/* 提示按钮 / 收藏星 / 例词 等新功能的样式（独立模块，避免改动大文件）。 */
+
+.hintRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.hintBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  transition: var(--t-fast);
+  flex-shrink: 0;
+}
+.hintBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.hintBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 被提示划掉的选项 */
+.hintOut {
+  opacity: 0.25 !important;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+/* 收藏星按钮（反馈区） */
+.starBtn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: var(--t-fast);
+  white-space: nowrap;
+}
+.starBtn:hover {
+  border-color: #e0a93b;
+  color: #e0a93b;
+}
+.starOn {
+  border-color: #e0a93b;
+  color: #e0a93b;
+  background: rgba(224, 169, 59, 0.14);
+}
+
+/* 例词行 */
+.exampleLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.exampleTag {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.exampleWord {
+  font-size: 18px;
+  font-weight: 600;
+}
+.exampleMeaning {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* 错题本里的收藏星 */
+.favStar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  transition: var(--t-fast);
+}
+.favStar:hover {
+  border-color: #e0a93b;
+}
+.favStarOn {
+  color: #e0a93b;
+  border-color: #e0a93b;
+  background: rgba(224, 169, 59, 0.14);
+}
+.favTag {
+  color: #e0a93b;
+  font-weight: 700;
+}

@@ -1,10 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { KANA_FACES, cardById } from '../data/decks'
+import { exampleFor } from '../data/examples'
 import { useQuiz } from '../hooks/useQuiz'
 import { useSettings } from '../store/settings'
+import { useProgress } from '../store/progress'
 import { playCard } from '../audio'
 import type { FaceKey, FaceMeta } from '../types'
 import s from './Quiz.module.css'
+import x from './Extras.module.css'
 
 const faceMeta = (k: FaceKey): FaceMeta => KANA_FACES.find((f) => f.key === k)!
 
@@ -16,9 +19,14 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
   const { question, selectedId, phase, lastCorrect, faceValue, current, total, correctCount, answered } =
     quiz
   const sound = useSettings((st) => st.sound)
+  const favorited = useProgress((st) => (question ? question.card.id in st.favorites : false))
+  const toggleFavorite = useProgress((st) => st.toggleFavorite)
 
-  // 新题：题面是读音则自动播放
+  const [hintOut, setHintOut] = useState<Set<string>>(new Set())
+
+  // 新题：题面是读音则自动播放；同时清掉提示
   useEffect(() => {
+    setHintOut(new Set())
     if (question && sound && phase === 'answering' && question.promptFace === 'audio') {
       playCard(question.card)
     }
@@ -49,14 +57,16 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
       } else if (/^[1-9]$/.test(e.key) && phase === 'answering') {
         const i = Number(e.key) - 1
         if (i < question.optionIds.length) {
+          const id = question.optionIds[i]
+          if (hintOut.has(id)) return
           e.preventDefault()
-          quiz.select(question.optionIds[i])
+          quiz.select(id)
         }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, selectedId, question, quiz])
+  }, [phase, selectedId, question, quiz, hintOut])
 
   if (!question) return null
 
@@ -66,6 +76,16 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
   const progressPct = total ? (answered / total) * 100 : 0
   const promptIsAudio = promptMeta.kind === 'audio'
   const targetIsAudio = targetMeta.kind === 'audio'
+  const example = exampleFor(question.card.hiragana)
+
+  // 提示：随机划掉约一半错误选项（不动已选的）
+  const giveHint = () => {
+    if (phase !== 'answering' || hintOut.size > 0) return
+    const wrongs = question.optionIds.filter((id) => id !== correctId && id !== selectedId)
+    const n = Math.floor((question.optionIds.length - 1) / 2)
+    const picked = [...wrongs].sort(() => Math.random() - 0.5).slice(0, n)
+    if (picked.length) setHintOut(new Set(picked))
+  }
 
   return (
     <div className={s.screen}>
@@ -84,10 +104,22 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
         </div>
       </div>
 
-      <p className={s.hint}>
-        {promptIsAudio ? '听发音' : <>看 <b>{promptMeta.label}</b></>}，选 <b>{targetMeta.label}</b>
-        {targetIsAudio && <span className={s.hintDim}>（点喇叭试听）</span>}
-      </p>
+      <div className={x.hintRow}>
+        <p className={s.hint}>
+          {promptIsAudio ? '听发音' : <>看 <b>{promptMeta.label}</b></>}，选 <b>{targetMeta.label}</b>
+          {targetIsAudio && <span className={s.hintDim}>（点喇叭试听）</span>}
+        </p>
+        {phase === 'answering' && (
+          <button
+            className={x.hintBtn}
+            onClick={giveHint}
+            disabled={hintOut.size > 0}
+            title="提示：划掉部分错误选项"
+          >
+            💡
+          </button>
+        )}
+      </div>
 
       {promptIsAudio ? (
         <div className={s.prompt}>
@@ -114,6 +146,7 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           const c = cardById.get(id)!
           const isSel = selectedId === id
           const isCorrect = id === correctId
+          const isOut = phase === 'answering' && hintOut.has(id)
           let cls = s.option
           if (phase === 'answering') {
             if (isSel) cls += ` ${s.selected}`
@@ -124,13 +157,15 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           } else {
             cls += ` ${s.dim}`
           }
-          const textDisabled = phase === 'revealed' && !targetIsAudio
+          if (isOut) cls += ` ${x.hintOut}`
+          const disabled = (phase === 'revealed' && !targetIsAudio) || isOut
           return (
             <button
               key={id}
               className={`${cls} ${targetIsAudio ? s.optAudio : ''}`}
-              disabled={textDisabled}
+              disabled={disabled}
               onClick={() => {
+                if (isOut) return
                 if (targetIsAudio) playCard(c)
                 if (phase === 'answering') quiz.select(id)
               }}
@@ -163,8 +198,15 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
           <div className={s.fbHead}>
             <span className={s.fbIcon}>{lastCorrect ? '✓' : '✗'}</span>
             <span className={s.fbText}>{lastCorrect ? '正确！' : '记一下，下次就对了'}</span>
+            <button
+              className={`${x.starBtn} ${favorited ? x.starOn : ''}`}
+              onClick={() => toggleFavorite(question.card.id)}
+              title="收藏到复习（错题本）"
+            >
+              {favorited ? '★ 已收藏' : '☆ 收藏'}
+            </button>
             <button className={s.soundBtn} onClick={() => playCard(question.card)}>
-              🔊 发音
+              🔊
             </button>
           </div>
           <div className={s.answer}>
@@ -177,6 +219,13 @@ export default function QuizScreen({ quiz }: { quiz: ReturnType<typeof useQuiz> 
               </span>
             ))}
           </div>
+          {example && (
+            <div className={x.exampleLine}>
+              <span className={x.exampleTag}>例词</span>
+              <span className={`${x.exampleWord} jp`}>{example.word}</span>
+              <span className={x.exampleMeaning}>{example.meaning}</span>
+            </div>
+          )}
           <button className={s.primary} onClick={() => quiz.next()}>
             {current >= total ? '看结果' : '下一题'}
             <span className={s.kbd}>Enter</span>

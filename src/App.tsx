@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import styles from './App.module.css'
 import { useSettings } from './store/settings'
-import { useProgress } from './store/progress'
+import { selectReviewCount, useProgress } from './store/progress'
 import { useQuiz } from './hooks/useQuiz'
 import PracticeMenu from './components/PracticeMenu'
 import QuizScreen from './components/QuizScreen'
@@ -18,9 +18,7 @@ export default function App() {
   const setTheme = useSettings((s) => s.setTheme)
   const sound = useSettings((s) => s.sound)
   const setSound = useSettings((s) => s.setSound)
-  const mistakeCount = useProgress(
-    (s) => Object.values(s.mistakes).filter((r) => r.wrong > 0).length,
-  )
+  const reviewCount = useProgress(selectReviewCount)
 
   // 会话提升到顶层：切到别的标签页再回来不丢进度。
   const quiz = useQuiz()
@@ -76,7 +74,7 @@ export default function App() {
         </button>
         <button className={tabClass('mistakes')} onClick={() => setTab('mistakes')}>
           错题本
-          {mistakeCount > 0 && <span className={styles.badge}>{mistakeCount}</span>}
+          {reviewCount > 0 && <span className={styles.badge}>{reviewCount}</span>}
         </button>
         <button className={tabClass('settings')} onClick={() => setTab('settings')}>
           设置
