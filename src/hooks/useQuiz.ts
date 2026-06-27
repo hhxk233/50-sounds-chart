@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { cardById, kanaCards, makeFaceValue } from '../data/decks'
 import { Bag } from '../engine/bag'
-import { answerMatches, generateQuestion } from '../engine/question'
+import { answerMatches, generateQuestion, type FacePair } from '../engine/question'
 import type { AnswerResult, FaceKey, FaceValue, Question } from '../types'
 import { useSettings } from '../store/settings'
 import { useProgress } from '../store/progress'
@@ -22,6 +22,9 @@ export interface SessionState {
 }
 
 const audioSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
+
+// 罗马音与读音互为同义，配在一起太直白——禁止这对（两个方向）。
+const EXCLUDE_PAIRS: readonly FacePair[] = [['romaji', 'audio']]
 
 /** 会话化答题：选集合+题量 → 出 n 题(随机题面/目标) → 成绩总结。 */
 export function useQuiz() {
@@ -59,6 +62,7 @@ export function useQuiz() {
       allowedFaces,
       optionCount,
       smart,
+      excludePairs: EXCLUDE_PAIRS,
     })
   }
 

@@ -1,6 +1,8 @@
 import type { FaceKey, FaceValue, Question, QuizCard } from '../types'
 import { randomChoice, shuffle, type Rng } from './random'
 
+export type FacePair = readonly [FaceKey, FaceKey]
+
 export interface GenOpts {
   faceValue: FaceValue
   /** 允许的表示集合（读音是否参与由外部按设置/TTS 支持情况决定）。 */
@@ -8,9 +10,15 @@ export interface GenOpts {
   optionCount: number
   smart?: boolean
   rng?: Rng
-  /** 调试/特定场景下固定题面。 */
+  /** 禁止出现的「题面/目标」配对（任一方向）。如 [['romaji','audio']]：罗马音与读音互为同义，太直白。 */
+  excludePairs?: readonly FacePair[]
+  /** 调试/特定场景下固定题面/目标。 */
   forcePromptFace?: FaceKey
   forceTargetFace?: FaceKey
+}
+
+function pairExcluded(a: FaceKey, b: FaceKey, pairs: readonly FacePair[]): boolean {
+  return pairs.some(([x, y]) => (x === a && y === b) || (x === b && y === a))
 }
 
 /**
@@ -63,7 +71,7 @@ export function pickOptionIds(
   return shuffle([card.id, ...chosen], rng)
 }
 
-/** 生成一道题：随机题面 + 随机目标(另一种) + 一组选项。 */
+/** 生成一道题：随机题面 + 随机目标(另一种，排除禁止配对) + 一组选项。 */
 export function generateQuestion(
   card: QuizCard,
   pool: readonly QuizCard[],
@@ -71,15 +79,23 @@ export function generateQuestion(
 ): Question {
   const rng = opts.rng ?? Math.random
   const faces = opts.allowedFaces
+  const excludePairs = opts.excludePairs ?? []
+
   const promptFace =
     opts.forcePromptFace && faces.includes(opts.forcePromptFace)
       ? opts.forcePromptFace
       : randomChoice(faces, rng)
-  const targets = faces.filter((f) => f !== promptFace)
+
+  // 目标候选：不等于题面，且与题面不构成禁止配对。
+  let targets = faces.filter((f) => f !== promptFace && !pairExcluded(promptFace, f, excludePairs))
+  // 兜底：万一全被排除，退回到「只去掉题面」。
+  if (targets.length === 0) targets = faces.filter((f) => f !== promptFace)
+
   const targetFace =
     opts.forceTargetFace && targets.includes(opts.forceTargetFace)
       ? opts.forceTargetFace
       : randomChoice(targets, rng)
+
   const optionIds = pickOptionIds(
     card,
     targetFace,
