@@ -8,6 +8,11 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 关键：授予写 Release 的权限，否则 tauri-action 创建 Release 会报
+# "Resource not accessible by integration"。
+permissions:
+  contents: write
+
 jobs:
   desktop:
     name: Windows 桌面
@@ -25,14 +30,14 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-      - name: 构建并发布（.msi / .exe）
+      - name: 构建并发布（.exe / NSIS）
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: '五十音特訓 ${{ github.ref_name }}'
-          releaseBody: '桌面安装包（.msi / .exe）与安卓 .apk 见下方附件。'
+          releaseBody: '桌面安装包（.exe）与安卓 .apk 见下方附件。'
           releaseDraft: false
           prerelease: false
 

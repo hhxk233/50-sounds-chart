@@ -8,8 +8,9 @@ import QuizScreen from './components/QuizScreen'
 import SessionSummary from './components/SessionSummary'
 import SettingsView from './components/SettingsView'
 import MistakeBook from './components/MistakeBook'
+import Chart from './components/Chart'
 
-type Tab = 'practice' | 'mistakes' | 'settings'
+type Tab = 'practice' | 'chart' | 'mistakes' | 'settings'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('practice')
@@ -21,7 +22,7 @@ export default function App() {
     (s) => Object.values(s.mistakes).filter((r) => r.wrong > 0).length,
   )
 
-  // 会话提升到顶层：切到设置/错题本再回来不丢进度。
+  // 会话提升到顶层：切到别的标签页再回来不丢进度。
   const quiz = useQuiz()
 
   useEffect(() => {
@@ -38,6 +39,8 @@ export default function App() {
     quiz.startMistakes(len)
     setTab('practice')
   }
+
+  const tabClass = (t: Tab) => (tab === t ? styles.tabActive : styles.tab)
 
   return (
     <div className={styles.app}>
@@ -65,23 +68,17 @@ export default function App() {
       </header>
 
       <nav className={styles.nav}>
-        <button
-          className={tab === 'practice' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('practice')}
-        >
+        <button className={tabClass('practice')} onClick={() => setTab('practice')}>
           练习
         </button>
-        <button
-          className={tab === 'mistakes' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('mistakes')}
-        >
+        <button className={tabClass('chart')} onClick={() => setTab('chart')}>
+          50音图
+        </button>
+        <button className={tabClass('mistakes')} onClick={() => setTab('mistakes')}>
           错题本
           {mistakeCount > 0 && <span className={styles.badge}>{mistakeCount}</span>}
         </button>
-        <button
-          className={tab === 'settings' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('settings')}
-        >
+        <button className={tabClass('settings')} onClick={() => setTab('settings')}>
           设置
         </button>
       </nav>
@@ -91,10 +88,12 @@ export default function App() {
           <PracticeMenu
             onStart={quiz.startSession}
             onStartMistakes={(len) => quiz.startMistakes(len)}
+            onOpenChart={() => setTab('chart')}
           />
         )}
         {tab === 'practice' && quiz.status === 'running' && <QuizScreen quiz={quiz} />}
         {tab === 'practice' && quiz.status === 'done' && <SessionSummary quiz={quiz} />}
+        {tab === 'chart' && <Chart />}
         {tab === 'mistakes' && <MistakeBook onPracticeMistakes={practiceMistakes} />}
         {tab === 'settings' && <SettingsView />}
       </main>

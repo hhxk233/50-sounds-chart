@@ -40,9 +40,11 @@ function SetCard({
 export default function PracticeMenu({
   onStart,
   onStartMistakes,
+  onOpenChart,
 }: {
   onStart: (set: ActiveSet, length: number) => void
   onStartMistakes: (length: number) => void
+  onOpenChart: () => void
 }) {
   const mistakeCount = useProgress(
     (st) => Object.values(st.mistakes).filter((r) => r.wrong > 0).length,
@@ -54,6 +56,18 @@ export default function PracticeMenu({
 
   return (
     <div className={s.wrap}>
+      {/* 50音图速查表入口 */}
+      <button
+        className={`${s.card} ${s.cardAccent}`}
+        style={{ cursor: 'pointer', textAlign: 'left', width: '100%' }}
+        onClick={onOpenChart}
+      >
+        <div className={s.cardMain}>
+          <div className={s.cardLabel}>50音图 · 速查表</div>
+          <div className={s.cardSample}>完整对照表，点假名听发音 →</div>
+        </div>
+      </button>
+
       <p className={s.intro}>
         选一个范围和题量开始。每题随机考平假名 / 片假名 / 罗马音 / 读音其中一种。
       </p>

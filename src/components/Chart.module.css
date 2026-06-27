@@ -1,0 +1,87 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.intro {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+
+.grid {
+  display: grid;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.corner {
+  background: transparent;
+}
+.head {
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  padding-bottom: 2px;
+}
+.rowLabel {
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 8px 2px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: var(--t-fast);
+}
+.cell:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.cellEmpty {
+  border-radius: 12px;
+  background: transparent;
+}
+
+.hira {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.kata {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.1;
+}
+.romaji {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
