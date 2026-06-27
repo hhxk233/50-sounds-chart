@@ -104,7 +104,12 @@ jobs:
             echo "::warning::未配置签名 Secrets，使用临时 keystore：可安装，但每次构建签名不同，升级前需先卸载旧版。"
           fi
           BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          UNSIGNED="$(find src-tauri/gen/android -path '*release*' -name '*.apk' | grep -vi signed | head -1)"
+          echo "===== 产物 APK 列表 ====="; find src-tauri/gen/android -name '*.apk' || true; echo "========================"
+          # 选未签名的 release 包（文件名形如 app-universal-release-unsigned.apk）。
+          UNSIGNED="$(find src-tauri/gen/android -name '*.apk' | grep -i release | grep -i unsigned | head -1)"
+          [ -z "$UNSIGNED" ] && UNSIGNED="$(find src-tauri/gen/android -name '*.apk' | grep -i release | head -1)"
+          [ -z "$UNSIGNED" ] && UNSIGNED="$(find src-tauri/gen/android -name '*.apk' | head -1)"
+          if [ -z "$UNSIGNED" ]; then echo "未找到 APK，可能只产出了 .aab："; find src-tauri/gen/android -name '*.aab'; exit 1; fi
           echo "未签名 APK: $UNSIGNED"
           OUT="$RUNNER_TEMP/kana-trainer-${{ github.ref_name }}-arm64.apk"
           "$BT/zipalign" -f 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
