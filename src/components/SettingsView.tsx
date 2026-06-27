@@ -1,20 +1,7 @@
 import type { ReactNode } from 'react'
-import { KANA_CATEGORIES, kanaDeck } from '../data/decks'
 import { useSettings, type ThemePref } from '../store/settings'
+import type { RomajiStyle } from '../types'
 import s from './Settings.module.css'
-
-const categoryCounts: Record<string, number> = kanaDeck.cards.reduce(
-  (acc, c) => {
-    acc[c.category] = (acc[c.category] ?? 0) + 1
-    return acc
-  },
-  {} as Record<string, number>,
-)
-
-const modeOptions = [
-  ...kanaDeck.faces.map((f) => ({ value: f.key, label: f.label })),
-  { value: 'random', label: '随机' },
-]
 
 function Segmented({
   value,
@@ -67,22 +54,28 @@ function SwitchRow({ title, sub, children }: { title: string; sub?: string; chil
 
 export default function SettingsView() {
   const st = useSettings()
-  const activeTotal = kanaDeck.cards.filter((c) => st.enabledCategories.includes(c.category)).length
 
   return (
     <div className={s.wrap}>
       <section className={s.card}>
         <div className={s.rowHead}>
-          <h3 className={s.h3}>题面显示</h3>
-          <span className={s.sub}>固定一种 / 纯随机</span>
+          <h3 className={s.h3}>罗马音形式</h3>
+          <span className={s.sub}>shi/si · tsu/tu</span>
         </div>
-        <Segmented value={st.mode} options={modeOptions} onChange={st.setMode} />
+        <Segmented
+          value={st.romajiStyle}
+          options={[
+            { value: 'hepburn', label: 'Hepburn 平文式' },
+            { value: 'kunrei', label: '训令式' },
+          ]}
+          onChange={(v) => st.setRomajiStyle(v as RomajiStyle)}
+        />
       </section>
 
       <section className={s.card}>
         <div className={s.rowHead}>
-          <h3 className={s.h3}>每组选项数量</h3>
-          <span className={s.sub}>每种表示给几个候选</span>
+          <h3 className={s.h3}>每题选项数量</h3>
+          <span className={s.sub}>候选个数</span>
         </div>
         <Segmented
           value={String(st.optionCount)}
@@ -96,38 +89,19 @@ export default function SettingsView() {
       </section>
 
       <section className={s.card}>
-        <div className={s.rowHead}>
-          <h3 className={s.h3}>练习范围</h3>
-          <span className={s.sub}>当前 {activeTotal} 张</span>
-        </div>
-        <div className={s.cats}>
-          {KANA_CATEGORIES.map((c) => {
-            const on = st.enabledCategories.includes(c.key)
-            return (
-              <button
-                key={c.key}
-                className={`${s.cat} ${on ? s.catOn : ''}`}
-                onClick={() => st.toggleCategory(c.key)}
-                aria-pressed={on}
-              >
-                <span>{c.label}</span>
-                <span className={s.catCount}>{categoryCounts[c.key]}</span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <section className={s.card}>
+        <SwitchRow title="读音题型" sub="出「听发音选假名」「看假名选发音」(需系统有日语语音)">
+          <Toggle checked={st.includeAudio} onChange={st.setIncludeAudio} />
+        </SwitchRow>
+        <div className={s.divider} />
         <SwitchRow title="智能干扰项" sub="相近的同行/同类项优先，练得更狠">
           <Toggle checked={st.smartDistractors} onChange={st.setSmart} />
         </SwitchRow>
         <div className={s.divider} />
-        <SwitchRow title="错题加权抽题" sub="错得多的音更常出现，每轮仍至少一次">
+        <SwitchRow title="错题加权抽题" sub="错得多的音更常出现">
           <Toggle checked={st.weightMistakes} onChange={st.setWeightMistakes} />
         </SwitchRow>
         <div className={s.divider} />
-        <SwitchRow title="自动发音" sub="答完自动朗读（浏览器 Web Speech）">
+        <SwitchRow title="自动发音" sub="揭晓答案时自动朗读">
           <Toggle checked={st.sound} onChange={st.setSound} />
         </SwitchRow>
       </section>

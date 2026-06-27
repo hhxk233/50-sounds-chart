@@ -1,0 +1,20 @@
+[package]
+name = "kana-trainer"
+version = "0.1.0"
+description = "五十音特訓 · 50音 Trainer"
+authors = ["hhxk233"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# Tauri v2 需要 lib + main：移动端从 lib 的 run() 进入。
+name = "kana_trainer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

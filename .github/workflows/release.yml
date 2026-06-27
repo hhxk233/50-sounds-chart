@@ -1,0 +1,87 @@
+name: Release
+
+# 打 v 开头的 tag（如 v0.1.0）时触发：构建 Windows 安装包与 Android APK 并发布到 Release。
+# 也可在 Actions 页面手动触发（workflow_dispatch）。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    name: Windows 桌面
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 安装前端依赖
+        run: npm install
+      - name: Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: 构建并发布（.msi / .exe）
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '五十音特訓 ${{ github.ref_name }}'
+          releaseBody: '桌面安装包（.msi / .exe）与安卓 .apk 见下方附件。'
+          releaseDraft: false
+          prerelease: false
+
+  android:
+    name: Android APK
+    needs: desktop
+    runs-on: ubuntu-latest
+    env:
+      NDK_VERSION: '26.1.10909125'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 安装前端依赖
+        run: npm install
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: 安装平台与 NDK
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;${{ env.NDK_VERSION }}"
+      - name: Rust 工具链（安卓 target）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: 安装 Tauri CLI
+        run: npm install -D @tauri-apps/cli@latest
+      - name: 构建前端
+        run: npm run build
+      - name: 初始化安卓工程
+        run: npx tauri android init
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+      - name: 构建 APK（debug 签名，可直接安装到手机）
+        run: npx tauri android build --debug --apk
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+      - name: 上传 APK 到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

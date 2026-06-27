@@ -1,23 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { QuizMode } from '../types'
-import { KANA_CATEGORIES, defaultDeck } from '../data/decks'
+import type { RomajiStyle } from '../types'
 
 export type ThemePref = 'system' | 'light' | 'dark'
 
 export interface SettingsState {
-  deckId: string
   optionCount: number // 4–6
-  mode: QuizMode // 'hiragana' | 'katakana' | 'romaji' | 'random'
-  enabledCategories: string[]
+  romajiStyle: RomajiStyle
+  includeAudio: boolean // 是否出「读音」题型
   smartDistractors: boolean
   weightMistakes: boolean
-  sound: boolean
+  sound: boolean // 揭晓时自动发音
   theme: ThemePref
   // actions
   setOptionCount: (n: number) => void
-  setMode: (m: QuizMode) => void
-  toggleCategory: (key: string) => void
+  setRomajiStyle: (s: RomajiStyle) => void
+  setIncludeAudio: (v: boolean) => void
   setSmart: (v: boolean) => void
   setWeightMistakes: (v: boolean) => void
   setSound: (v: boolean) => void
@@ -26,10 +24,9 @@ export interface SettingsState {
 }
 
 const DEFAULTS = {
-  deckId: defaultDeck.id,
   optionCount: 5,
-  mode: 'random' as QuizMode,
-  enabledCategories: KANA_CATEGORIES.map((c) => c.key),
+  romajiStyle: 'hepburn' as RomajiStyle,
+  includeAudio: true,
   smartDistractors: false,
   weightMistakes: true,
   sound: true,
@@ -41,15 +38,8 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       ...DEFAULTS,
       setOptionCount: (n) => set({ optionCount: Math.min(6, Math.max(4, Math.round(n))) }),
-      setMode: (mode) => set({ mode }),
-      toggleCategory: (key) =>
-        set((s) => {
-          const next = s.enabledCategories.includes(key)
-            ? s.enabledCategories.filter((k) => k !== key)
-            : [...s.enabledCategories, key]
-          // 至少保留一类，避免空牌池
-          return { enabledCategories: next.length ? next : s.enabledCategories }
-        }),
+      setRomajiStyle: (romajiStyle) => set({ romajiStyle }),
+      setIncludeAudio: (includeAudio) => set({ includeAudio }),
       setSmart: (smartDistractors) => set({ smartDistractors }),
       setWeightMistakes: (weightMistakes) => set({ weightMistakes }),
       setSound: (sound) => set({ sound }),
@@ -58,12 +48,23 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'kana-trainer:settings',
-      version: 1,
+      version: 2,
+      // v1 → v2：去掉旧的 mode / enabledCategories / deckId，加入 romajiStyle / includeAudio。
+      migrate: (persisted) => {
+        const s = (persisted ?? {}) as Partial<SettingsState>
+        return {
+          ...DEFAULTS,
+          optionCount: s.optionCount ?? DEFAULTS.optionCount,
+          smartDistractors: s.smartDistractors ?? DEFAULTS.smartDistractors,
+          weightMistakes: s.weightMistakes ?? DEFAULTS.weightMistakes,
+          sound: s.sound ?? DEFAULTS.sound,
+          theme: s.theme ?? DEFAULTS.theme,
+        } as SettingsState
+      },
       partialize: (s) => ({
-        deckId: s.deckId,
         optionCount: s.optionCount,
-        mode: s.mode,
-        enabledCategories: s.enabledCategories,
+        romajiStyle: s.romajiStyle,
+        includeAudio: s.includeAudio,
         smartDistractors: s.smartDistractors,
         weightMistakes: s.weightMistakes,
         sound: s.sound,

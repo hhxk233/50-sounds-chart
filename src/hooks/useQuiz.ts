@@ -1,159 +1,157 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { getDeck } from '../data/decks'
+import { useMemo, useRef, useState } from 'react'
+import { cardById, kanaCards, makeFaceValue } from '../data/decks'
 import { Bag } from '../engine/bag'
-import {
-  allSelected,
-  emptySelections,
-  generateQuestion,
-  isQuestionCorrect,
-} from '../engine/question'
-import type { FaceKey, Question, Selections } from '../types'
+import { answerMatches, generateQuestion } from '../engine/question'
+import type { AnswerResult, FaceKey, FaceValue, Question } from '../types'
 import { useSettings } from '../store/settings'
 import { useProgress } from '../store/progress'
 
-export type QuizSource = 'all' | 'mistakes'
+export interface ActiveSet {
+  id: string
+  label: string
+  cardIds: string[]
+}
 export type Phase = 'answering' | 'revealed'
+export type Status = 'idle' | 'running' | 'done'
 
-export interface SessionStats {
-  answered: number
-  correct: number
-  streak: number
-  bestStreak: number
+export interface SessionState {
+  set: ActiveSet
+  length: number
+  index: number // 当前第几题（0-based）
+  results: AnswerResult[]
 }
 
-const initStats = (): SessionStats => ({ answered: 0, correct: 0, streak: 0, bestStreak: 0 })
+const audioSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-/** 编排引擎与 store 的题目状态机：出题 → 选择 → 确定 → 反馈 → 下一题。 */
+/** 会话化答题：选集合+题量 → 出 n 题(随机题面/目标) → 成绩总结。 */
 export function useQuiz() {
-  const deckId = useSettings((s) => s.deckId)
-  const enabled = useSettings((s) => s.enabledCategories)
   const optionCount = useSettings((s) => s.optionCount)
-  const mode = useSettings((s) => s.mode)
+  const romajiStyle = useSettings((s) => s.romajiStyle)
+  const includeAudio = useSettings((s) => s.includeAudio)
   const smart = useSettings((s) => s.smartDistractors)
   const weightMistakes = useSettings((s) => s.weightMistakes)
   const record = useProgress((s) => s.record)
 
-  const deck = useMemo(() => getDeck(deckId), [deckId])
-  const [source, setSource] = useState<QuizSource>('all')
-
-  // 当前牌池：normal=启用类；mistakes=进入时对错题做一次快照（session 内不变）。
-  const activeCards = useMemo(() => {
-    if (source === 'mistakes') {
-      const m = useProgress.getState().mistakes
-      const ids = new Set(Object.keys(m).filter((id) => m[id].wrong > 0))
-      return deck.cards.filter((c) => ids.has(c.id))
-    }
-    return deck.cards.filter((c) => enabled.includes(c.category))
-  }, [deck, enabled, source])
+  const faceValue: FaceValue = useMemo(() => makeFaceValue(romajiStyle), [romajiStyle])
+  const allowedFaces: FaceKey[] = useMemo(
+    () => [
+      'hiragana',
+      'katakana',
+      'romaji',
+      ...(includeAudio && audioSupported ? (['audio'] as const) : []),
+    ],
+    [includeAudio],
+  )
 
   const bagRef = useRef<Bag | null>(null)
+  const [status, setStatus] = useState<Status>('idle')
+  const [session, setSession] = useState<SessionState | null>(null)
   const [question, setQuestion] = useState<Question | null>(null)
-  const [selections, setSelections] = useState<Selections>({})
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('answering')
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
-  const [stats, setStats] = useState<SessionStats>(initStats)
-  const [, force] = useState(0)
 
-  // 出题相关设置用 ref 读取最新值，避免把它们当作牌池重建的依赖。
-  const optRef = useRef({ optionCount, mode, smart })
-  optRef.current = { optionCount, mode, smart }
-
-  const buildQuestion = (card: Question['card']): Question => {
-    const { optionCount: oc, mode: md, smart: sm } = optRef.current
-    return generateQuestion(card, deck, md, oc, activeCards, { smart: sm })
+  const buildQuestion = (cardId: string): Question | null => {
+    const card = cardById.get(cardId)
+    if (!card) return null
+    return generateQuestion(card, kanaCards, {
+      faceValue,
+      allowedFaces,
+      optionCount,
+      smart,
+    })
   }
 
-  const applyQuestion = (q: Question) => {
-    setQuestion(q)
-    setSelections(emptySelections(q))
+  const weightOf = (cardId: string) =>
+    weightMistakes ? Math.min(4, useProgress.getState().mistakes[cardId]?.wrong ?? 0) : 0
+
+  function startSession(set: ActiveSet, length: number) {
+    const pool = set.cardIds.map((id) => cardById.get(id)!).filter(Boolean)
+    if (pool.length === 0) return
+    const bag = new Bag(pool, { weightOf: (c) => weightOf(c.id) })
+    bagRef.current = bag
+    const first = buildQuestion(bag.draw().id)
+    setSession({ set, length, index: 0, results: [] })
+    setStatus('running')
+    setQuestion(first)
+    setSelectedId(null)
     setPhase('answering')
     setLastCorrect(null)
-    force((x) => x + 1)
   }
 
-  // 牌池变化 → 重建袋子并出第一题，重置 session 统计。
-  useEffect(() => {
-    if (activeCards.length === 0) {
-      bagRef.current = null
-      setQuestion(null)
-      return
-    }
-    const bag = new Bag(activeCards.slice(), {
-      weightOf: (c) =>
-        weightMistakes ? Math.min(4, useProgress.getState().mistakes[c.id]?.wrong ?? 0) : 0,
-    })
-    bagRef.current = bag
-    setStats(initStats())
-    applyQuestion(buildQuestion(bag.draw()))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCards, deck, weightMistakes])
+  function startMistakes(length: number) {
+    const m = useProgress.getState().mistakes
+    const ids = Object.keys(m).filter((id) => m[id].wrong > 0 && cardById.has(id))
+    if (ids.length === 0) return
+    startSession({ id: 'mistakes', label: '错题复习', cardIds: ids }, Math.min(length, ids.length))
+  }
 
-  function select(face: FaceKey, value: string) {
-    if (phase !== 'answering') return
-    setSelections((s) => ({ ...s, [face]: value }))
+  function select(id: string) {
+    if (phase === 'answering') setSelectedId(id)
   }
 
   function confirm() {
-    if (!question || phase !== 'answering' || !allSelected(question, selections)) return
-    const correct = isQuestionCorrect(question, selections)
+    if (!question || phase !== 'answering' || !selectedId) return
+    const sel = cardById.get(selectedId)
+    if (!sel) return
+    const correct = answerMatches(question, sel, faceValue)
     setPhase('revealed')
     setLastCorrect(correct)
     record(question.card.id, correct)
-    setStats((s) => {
-      const streak = correct ? s.streak + 1 : 0
-      return {
-        answered: s.answered + 1,
-        correct: s.correct + (correct ? 1 : 0),
-        streak,
-        bestStreak: Math.max(s.bestStreak, streak),
-      }
-    })
+    setSession((s) =>
+      s ? { ...s, results: [...s.results, { cardId: question.card.id, correct }] } : s,
+    )
   }
 
   function next() {
     const bag = bagRef.current
-    if (!bag) return
-    applyQuestion(buildQuestion(bag.draw()))
+    if (!bag || !session) return
+    const nextIndex = session.index + 1
+    if (nextIndex >= session.length) {
+      setStatus('done')
+      setQuestion(null)
+      return
+    }
+    setSession((s) => (s ? { ...s, index: nextIndex } : s))
+    setQuestion(buildQuestion(bag.draw().id))
+    setSelectedId(null)
+    setPhase('answering')
+    setLastCorrect(null)
   }
 
-  function start(src: QuizSource) {
-    setSource(src) // 触发牌池 memo → 重建
+  function retry() {
+    if (session) startSession(session.set, session.length)
   }
 
-  function restart() {
-    // 重新洗一遍当前牌池
-    if (activeCards.length === 0) return
-    const bag = new Bag(activeCards.slice(), {
-      weightOf: (c) =>
-        weightMistakes ? Math.min(4, useProgress.getState().mistakes[c.id]?.wrong ?? 0) : 0,
-    })
-    bagRef.current = bag
-    setStats(initStats())
-    applyQuestion(buildQuestion(bag.draw()))
+  function exit() {
+    bagRef.current = null
+    setSession(null)
+    setQuestion(null)
+    setStatus('idle')
   }
 
-  const bag = bagRef.current
-  const progress = bag
-    ? { seen: bag.seenCount, total: bag.total, round: bag.round }
-    : { seen: 0, total: 0, round: 0 }
-
-  const canConfirm = Boolean(question && allSelected(question, selections))
+  const correctCount = session ? session.results.filter((r) => r.correct).length : 0
+  const answered = session ? session.results.length : 0
 
   return {
-    deck,
-    source,
+    status,
+    session,
     question,
-    selections,
+    selectedId,
     phase,
     lastCorrect,
-    stats,
-    progress,
-    canConfirm,
-    activeCount: activeCards.length,
+    faceValue,
+    audioSupported,
+    current: session ? session.index + 1 : 0,
+    total: session ? session.length : 0,
+    correctCount,
+    answered,
+    startSession,
+    startMistakes,
     select,
     confirm,
     next,
-    start,
-    restart,
+    retry,
+    exit,
   }
 }

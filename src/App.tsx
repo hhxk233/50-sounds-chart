@@ -3,7 +3,9 @@ import styles from './App.module.css'
 import { useSettings } from './store/settings'
 import { useProgress } from './store/progress'
 import { useQuiz } from './hooks/useQuiz'
+import PracticeMenu from './components/PracticeMenu'
 import QuizScreen from './components/QuizScreen'
+import SessionSummary from './components/SessionSummary'
 import SettingsView from './components/SettingsView'
 import MistakeBook from './components/MistakeBook'
 
@@ -19,10 +21,9 @@ export default function App() {
     (s) => Object.values(s.mistakes).filter((r) => r.wrong > 0).length,
   )
 
-  // 会话提升到顶层：切换标签页不丢进度。
+  // 会话提升到顶层：切到设置/错题本再回来不丢进度。
   const quiz = useQuiz()
 
-  // 主题应用到 <html data-theme>
   useEffect(() => {
     const root = document.documentElement
     if (theme === 'system') delete root.dataset.theme
@@ -33,8 +34,8 @@ export default function App() {
     setTheme(theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system')
   const themeIcon = theme === 'system' ? '◐' : theme === 'light' ? '☀' : '☾'
 
-  const practiceMistakes = () => {
-    quiz.start('mistakes')
+  const practiceMistakes = (len: number) => {
+    quiz.startMistakes(len)
     setTab('practice')
   }
 
@@ -45,7 +46,7 @@ export default function App() {
           <span className={`${styles.logo} jp`}>あ</span>
           <div>
             <h1 className={styles.title}>五十音特訓</h1>
-            <p className={styles.subtitle}>平 · 片 · 罗 互测</p>
+            <p className={styles.subtitle}>平 · 片 · 罗 · 音 随机互测</p>
           </div>
         </div>
         <div className={styles.tools}>
@@ -86,12 +87,19 @@ export default function App() {
       </nav>
 
       <main className={styles.main}>
-        {tab === 'practice' && <QuizScreen quiz={quiz} />}
+        {tab === 'practice' && quiz.status === 'idle' && (
+          <PracticeMenu
+            onStart={quiz.startSession}
+            onStartMistakes={(len) => quiz.startMistakes(len)}
+          />
+        )}
+        {tab === 'practice' && quiz.status === 'running' && <QuizScreen quiz={quiz} />}
+        {tab === 'practice' && quiz.status === 'done' && <SessionSummary quiz={quiz} />}
         {tab === 'mistakes' && <MistakeBook onPracticeMistakes={practiceMistakes} />}
         {tab === 'settings' && <SettingsView />}
       </main>
 
-      <footer className={styles.footer}>本地浏览器存档 · Web Speech 发音 · Hepburn 平文式</footer>
+      <footer className={styles.footer}>本地浏览器存档 · Web Speech 发音 · Hepburn / 训令式</footer>
     </div>
   )
 }

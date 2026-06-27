@@ -1,102 +1,106 @@
-import type {
-  DeckSource,
-  FaceKey,
-  OptionGroup,
-  Question,
-  QuizCard,
-  QuizMode,
-  Selections,
-} from '../types'
+import type { FaceKey, FaceValue, Question, QuizCard } from '../types'
 import { randomChoice, shuffle, type Rng } from './random'
 
-export interface OptionOpts {
-  /** 智能干扰：同「行」/同大类优先，练得更有针对性。 */
+export interface GenOpts {
+  faceValue: FaceValue
+  /** 允许的表示集合（读音是否参与由外部按设置/TTS 支持情况决定）。 */
+  allowedFaces: FaceKey[]
+  optionCount: number
   smart?: boolean
   rng?: Rng
+  /** 调试/特定场景下固定题面。 */
+  forcePromptFace?: FaceKey
+  forceTargetFace?: FaceKey
 }
 
 /**
- * 为某「目标表示」生成一组选项（含正确答案，已打乱）。
- *
- * 同音去歧义（核心）：
- *  - 候选目标值 ≠ 正确值：选项天然不重复（也排除了显示相同的 ず/づ）。
- *  - 候选「题面值」≠ 当前题面值：排除「也能正确回答本题」的同音卡。
- *    例题面是罗马音 zu 时，ず 与 づ 都对 —— 这条保证另一个不进选项池，避免两个正确答案。
+ * 为某「目标表示」抽选项 id（含正确卡，已打乱）。
+ * 去歧义：候选的目标值 ≠ 正确值（选项不重复），且候选的题面值 ≠ 当前题面值
+ * （排除「也能正确回答本题」的同音卡——读音/罗马音方向的 ず/づ、じ/ぢ 都靠这条）。
  */
-export function pickOptions(
+export function pickOptionIds(
   card: QuizCard,
   targetFace: FaceKey,
   promptFace: FaceKey,
   pool: readonly QuizCard[],
   count: number,
-  opts: OptionOpts = {},
-): OptionGroup {
-  const rng = opts.rng ?? Math.random
-  const correct = card.faces[targetFace]
-  const promptVal = card.faces[promptFace]
+  faceValue: FaceValue,
+  smart: boolean,
+  rng: Rng,
+): string[] {
+  const correctVal = faceValue(card, targetFace)
+  const promptVal = faceValue(card, promptFace)
 
   const candidates = pool.filter(
     (c) =>
       c.id !== card.id &&
-      c.faces[targetFace] != null &&
-      c.faces[targetFace] !== correct &&
-      c.faces[promptFace] !== promptVal,
+      faceValue(c, targetFace) !== correctVal &&
+      faceValue(c, promptFace) !== promptVal,
   )
 
   const needed = Math.max(0, count - 1)
   const chosen: string[] = []
-  const used = new Set<string>([correct])
+  const usedVals = new Set<string>([correctVal])
 
-  const takeFrom = (list: QuizCard[]) => {
+  const take = (list: QuizCard[]) => {
     for (const c of shuffle(list, rng)) {
       if (chosen.length >= needed) break
-      const v = c.faces[targetFace]
-      if (used.has(v)) continue
-      used.add(v)
-      chosen.push(v)
+      const v = faceValue(c, targetFace)
+      if (usedVals.has(v)) continue
+      usedVals.add(v)
+      chosen.push(c.id)
     }
   }
 
-  if (opts.smart) {
-    takeFrom(candidates.filter((c) => c.group != null && c.group === card.group))
-    takeFrom(candidates.filter((c) => c.category === card.category))
-    takeFrom(candidates)
+  if (smart) {
+    take(candidates.filter((c) => c.group != null && c.group === card.group))
+    take(candidates.filter((c) => c.category === card.category))
+    take(candidates)
   } else {
-    takeFrom(candidates)
+    take(candidates)
   }
 
-  return { face: targetFace, correct, options: shuffle([correct, ...chosen], rng) }
+  return shuffle([card.id, ...chosen], rng)
 }
 
-/** 生成一道题：定题面，其余每种表示各一组选项。pool 应为当前启用范围内的卡。 */
+/** 生成一道题：随机题面 + 随机目标(另一种) + 一组选项。 */
 export function generateQuestion(
   card: QuizCard,
-  deck: DeckSource,
-  mode: QuizMode,
-  optionCount: number,
   pool: readonly QuizCard[],
-  opts: OptionOpts = {},
+  opts: GenOpts,
 ): Question {
   const rng = opts.rng ?? Math.random
-  const faceKeys = deck.faces.map((f) => f.key)
-  const wanted = mode === 'random' ? randomChoice(faceKeys, rng) : mode
-  const promptFace = faceKeys.includes(wanted) ? wanted : faceKeys[0]
-  const groups = faceKeys
-    .filter((k) => k !== promptFace)
-    .map((target) => pickOptions(card, target, promptFace, pool, optionCount, { ...opts, rng }))
-  return { card, promptFace, groups }
+  const faces = opts.allowedFaces
+  const promptFace =
+    opts.forcePromptFace && faces.includes(opts.forcePromptFace)
+      ? opts.forcePromptFace
+      : randomChoice(faces, rng)
+  const targets = faces.filter((f) => f !== promptFace)
+  const targetFace =
+    opts.forceTargetFace && targets.includes(opts.forceTargetFace)
+      ? opts.forceTargetFace
+      : randomChoice(targets, rng)
+  const optionIds = pickOptionIds(
+    card,
+    targetFace,
+    promptFace,
+    pool,
+    opts.optionCount,
+    opts.faceValue,
+    opts.smart ?? false,
+    rng,
+  )
+  return { card, promptFace, targetFace, optionIds }
 }
 
-export function isQuestionCorrect(question: Question, selections: Selections): boolean {
-  return question.groups.every((g) => selections[g.face] === g.correct)
-}
-
-export function emptySelections(question: Question): Selections {
-  const s: Selections = {}
-  for (const g of question.groups) s[g.face] = null
-  return s
-}
-
-export function allSelected(question: Question, selections: Selections): boolean {
-  return question.groups.every((g) => selections[g.face] != null)
+/** 判断所选卡是否答对（按目标表示的值比较，天然兼容同音）。 */
+export function answerMatches(
+  question: Question,
+  selectedCard: QuizCard,
+  faceValue: FaceValue,
+): boolean {
+  return (
+    faceValue(selectedCard, question.targetFace) ===
+    faceValue(question.card, question.targetFace)
+  )
 }

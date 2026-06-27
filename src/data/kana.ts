@@ -1,15 +1,13 @@
 import type { KanaItem, KanaType } from '../types'
+import { romajiForms } from './romaji'
 
 /* ============================================================
-   完整五十音数据（Hepburn 平文式）
-   按「行」组织，再展开成 KanaItem[]，避免手抄上百条对象出错。
+   完整五十音数据。三元组里的罗马音写 Hepburn，构建时自动派生训令式。
    id = `${type}:${hiragana}`，全局唯一且稳定（错题本以此为键）。
-
-   长音 / 促音没有单字符三元组对应，按上一轮约定用「精选示例三元组」表示，
-   每条代表一个现象，照样走同一套答题机制。
+   长音 / 促音用精选示例三元组表示。
    ============================================================ */
 
-type Triple = readonly [hiragana: string, katakana: string, romaji: string]
+type Triple = readonly [hiragana: string, katakana: string, hepburn: string]
 
 interface RowDef {
   readonly type: KanaType
@@ -47,10 +45,7 @@ const ROWS: readonly RowDef[] = [
     ['ら', 'ラ', 'ra'], ['り', 'リ', 'ri'], ['る', 'ル', 'ru'], ['れ', 'レ', 're'], ['ろ', 'ロ', 'ro'],
   ] },
   { type: 'seion', row: 'わ行', items: [
-    ['わ', 'ワ', 'wa'], ['を', 'ヲ', 'wo'],
-  ] },
-  { type: 'seion', row: 'ん', items: [
-    ['ん', 'ン', 'n'],
+    ['わ', 'ワ', 'wa'], ['を', 'ヲ', 'wo'], ['ん', 'ン', 'n'],
   ] },
 
   /* ---------------- 浊音 dakuon（20）---------------- */
@@ -73,73 +68,38 @@ const ROWS: readonly RowDef[] = [
   ] },
 
   /* ---------------- 拗音 yoon（33）---------------- */
-  { type: 'yoon', row: 'き', items: [
-    ['きゃ', 'キャ', 'kya'], ['きゅ', 'キュ', 'kyu'], ['きょ', 'キョ', 'kyo'],
-  ] },
-  { type: 'yoon', row: 'し', items: [
-    ['しゃ', 'シャ', 'sha'], ['しゅ', 'シュ', 'shu'], ['しょ', 'ショ', 'sho'],
-  ] },
-  { type: 'yoon', row: 'ち', items: [
-    ['ちゃ', 'チャ', 'cha'], ['ちゅ', 'チュ', 'chu'], ['ちょ', 'チョ', 'cho'],
-  ] },
-  { type: 'yoon', row: 'に', items: [
-    ['にゃ', 'ニャ', 'nya'], ['にゅ', 'ニュ', 'nyu'], ['にょ', 'ニョ', 'nyo'],
-  ] },
-  { type: 'yoon', row: 'ひ', items: [
-    ['ひゃ', 'ヒャ', 'hya'], ['ひゅ', 'ヒュ', 'hyu'], ['ひょ', 'ヒョ', 'hyo'],
-  ] },
-  { type: 'yoon', row: 'み', items: [
-    ['みゃ', 'ミャ', 'mya'], ['みゅ', 'ミュ', 'myu'], ['みょ', 'ミョ', 'myo'],
-  ] },
-  { type: 'yoon', row: 'り', items: [
-    ['りゃ', 'リャ', 'rya'], ['りゅ', 'リュ', 'ryu'], ['りょ', 'リョ', 'ryo'],
-  ] },
-  { type: 'yoon', row: 'ぎ', items: [
-    ['ぎゃ', 'ギャ', 'gya'], ['ぎゅ', 'ギュ', 'gyu'], ['ぎょ', 'ギョ', 'gyo'],
-  ] },
-  { type: 'yoon', row: 'じ', items: [
-    ['じゃ', 'ジャ', 'ja'], ['じゅ', 'ジュ', 'ju'], ['じょ', 'ジョ', 'jo'],
-  ] },
-  { type: 'yoon', row: 'び', items: [
-    ['びゃ', 'ビャ', 'bya'], ['びゅ', 'ビュ', 'byu'], ['びょ', 'ビョ', 'byo'],
-  ] },
-  { type: 'yoon', row: 'ぴ', items: [
-    ['ぴゃ', 'ピャ', 'pya'], ['ぴゅ', 'ピュ', 'pyu'], ['ぴょ', 'ピョ', 'pyo'],
-  ] },
+  { type: 'yoon', row: 'きゃ行', items: [['きゃ', 'キャ', 'kya'], ['きゅ', 'キュ', 'kyu'], ['きょ', 'キョ', 'kyo']] },
+  { type: 'yoon', row: 'しゃ行', items: [['しゃ', 'シャ', 'sha'], ['しゅ', 'シュ', 'shu'], ['しょ', 'ショ', 'sho']] },
+  { type: 'yoon', row: 'ちゃ行', items: [['ちゃ', 'チャ', 'cha'], ['ちゅ', 'チュ', 'chu'], ['ちょ', 'チョ', 'cho']] },
+  { type: 'yoon', row: 'にゃ行', items: [['にゃ', 'ニャ', 'nya'], ['にゅ', 'ニュ', 'nyu'], ['にょ', 'ニョ', 'nyo']] },
+  { type: 'yoon', row: 'ひゃ行', items: [['ひゃ', 'ヒャ', 'hya'], ['ひゅ', 'ヒュ', 'hyu'], ['ひょ', 'ヒョ', 'hyo']] },
+  { type: 'yoon', row: 'みゃ行', items: [['みゃ', 'ミャ', 'mya'], ['みゅ', 'ミュ', 'myu'], ['みょ', 'ミョ', 'myo']] },
+  { type: 'yoon', row: 'りゃ行', items: [['りゃ', 'リャ', 'rya'], ['りゅ', 'リュ', 'ryu'], ['りょ', 'リョ', 'ryo']] },
+  { type: 'yoon', row: 'ぎゃ行', items: [['ぎゃ', 'ギャ', 'gya'], ['ぎゅ', 'ギュ', 'gyu'], ['ぎょ', 'ギョ', 'gyo']] },
+  { type: 'yoon', row: 'じゃ行', items: [['じゃ', 'ジャ', 'ja'], ['じゅ', 'ジュ', 'ju'], ['じょ', 'ジョ', 'jo']] },
+  { type: 'yoon', row: 'びゃ行', items: [['びゃ', 'ビャ', 'bya'], ['びゅ', 'ビュ', 'byu'], ['びょ', 'ビョ', 'byo']] },
+  { type: 'yoon', row: 'ぴゃ行', items: [['ぴゃ', 'ピャ', 'pya'], ['ぴゅ', 'ピュ', 'pyu'], ['ぴょ', 'ピョ', 'pyo']] },
 
-  /* ---------------- 长音 choon（精选示例）----------------
-     用清晰、无歧义的长元音示例。罗马音用长音符 ā/ī/ū/ē/ō。 */
+  /* ---------------- 长音 choon（精选示例）---------------- */
   { type: 'choon', row: '長音', items: [
-    ['かあ', 'カー', 'kā'],
-    ['いい', 'イー', 'ī'],
-    ['くう', 'クー', 'kū'],
-    ['ねえ', 'ネー', 'nē'],
-    ['おう', 'オー', 'ō'],
-    ['こう', 'コー', 'kō'],
-    ['すう', 'スー', 'sū'],
-    ['ゆう', 'ユー', 'yū'],
+    ['かあ', 'カー', 'kā'], ['いい', 'イー', 'ī'], ['くう', 'クー', 'kū'], ['ねえ', 'ネー', 'nē'],
+    ['おう', 'オー', 'ō'], ['こう', 'コー', 'kō'], ['すう', 'スー', 'sū'], ['ゆう', 'ユー', 'yū'],
   ] },
 
-  /* ---------------- 促音 sokuon（精选示例）----------------
-     用含「っ」的常见短词，能同时练识别。Hepburn 双辅音；
-     っ + ち系 写作 tch（matcha）。 */
+  /* ---------------- 促音 sokuon（精选示例）---------------- */
   { type: 'sokuon', row: '促音', items: [
-    ['きって', 'キッテ', 'kitte'],
-    ['きっぷ', 'キップ', 'kippu'],
-    ['ざっし', 'ザッシ', 'zasshi'],
-    ['いっぱい', 'イッパイ', 'ippai'],
-    ['まっちゃ', 'マッチャ', 'matcha'],
-    ['けっこん', 'ケッコン', 'kekkon'],
+    ['きって', 'キッテ', 'kitte'], ['きっぷ', 'キップ', 'kippu'], ['ざっし', 'ザッシ', 'zasshi'],
+    ['いっぱい', 'イッパイ', 'ippai'], ['まっちゃ', 'マッチャ', 'matcha'], ['けっこん', 'ケッコン', 'kekkon'],
   ] },
 ]
 
 export const kanaItems: KanaItem[] = ROWS.flatMap(({ type, row, items }) =>
   items.map(
-    ([hiragana, katakana, romaji]): KanaItem => ({
+    ([hiragana, katakana, hepburn]): KanaItem => ({
       id: `${type}:${hiragana}`,
       hiragana,
       katakana,
-      romaji,
+      romaji: romajiForms(hepburn),
       type,
       row,
     }),

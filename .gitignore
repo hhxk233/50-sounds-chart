@@ -8,3 +8,11 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# 锁文件不入库：Windows 上生成的 lock 会触发 npm 可选依赖 bug，
+# 让 Windows / Ubuntu 两个 CI runner 各自按平台解析依赖更稳。
+package-lock.json
+
+# Tauri（Rust 产物与生成的安卓/桌面工程）
+src-tauri/target
+src-tauri/gen

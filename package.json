@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "五十音(50音図)特訓 — 平假名/片假名/罗马音互测、错题本、发音。可扩展为背单词。",
+  "description": "五十音(50音図)特訓 — 平假名/片假名/罗马音/读音 随机互测、错题本、发音。可扩展为背单词。",
   "author": "hhxk233",
   "engines": {
     "node": ">=18"
@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "tauri": "tauri"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -22,7 +23,12 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
-    "typescript": 
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.8"
+  }
+}

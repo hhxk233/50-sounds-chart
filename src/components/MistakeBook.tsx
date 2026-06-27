@@ -1,14 +1,11 @@
 import { selectMistakeList, useProgress } from '../store/progress'
-import { kanaDeck } from '../data/decks'
+import { cardById } from '../data/decks'
 import { useSpeech } from '../hooks/useSpeech'
 import s from './Mistakes.module.css'
 
-const cardMap = new Map(kanaDeck.cards.map((c) => [c.id, c]))
-
 function timeAgo(ts: number): string {
   if (!ts) return ''
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60000)
+  const m = Math.floor((Date.now() - ts) / 60000)
   if (m < 1) return '刚刚'
   if (m < 60) return `${m} 分钟前`
   const h = Math.floor(m / 60)
@@ -16,7 +13,11 @@ function timeAgo(ts: number): string {
   return `${Math.floor(h / 24)} 天前`
 }
 
-export default function MistakeBook({ onPracticeMistakes }: { onPracticeMistakes: () => void }) {
+export default function MistakeBook({
+  onPracticeMistakes,
+}: {
+  onPracticeMistakes: (length: number) => void
+}) {
   const list = useProgress(selectMistakeList)
   const clearCard = useProgress((st) => st.clearCard)
   const resetAll = useProgress((st) => st.resetAll)
@@ -31,6 +32,10 @@ export default function MistakeBook({ onPracticeMistakes }: { onPracticeMistakes
     )
   }
 
+  const counts = Array.from(new Set([10, 20, list.length]))
+    .filter((n) => n > 0 && n <= list.length)
+    .sort((a, b) => a - b)
+
   return (
     <div className={s.wrap}>
       <div className={s.toolbar}>
@@ -38,33 +43,37 @@ export default function MistakeBook({ onPracticeMistakes }: { onPracticeMistakes
           <div className={s.count}>{list.length} 个易错音</div>
           <div className={s.sub}>按错误次数排序</div>
         </div>
-        <div className={s.actions}>
-          <button className={s.primary} onClick={onPracticeMistakes}>
-            只练错题
+        <button
+          className={s.ghost}
+          onClick={() => {
+            if (confirm('确定清空整个错题本？此操作不可撤销。')) resetAll()
+          }}
+        >
+          清空
+        </button>
+      </div>
+
+      <div className={s.practiceRow}>
+        <span className={s.practiceLabel}>只练错题：</span>
+        {counts.map((c) => (
+          <button key={c} className={s.pchip} onClick={() => onPracticeMistakes(c)}>
+            {c} 题
           </button>
-          <button
-            className={s.ghost}
-            onClick={() => {
-              if (confirm('确定清空整个错题本？此操作不可撤销。')) resetAll()
-            }}
-          >
-            清空
-          </button>
-        </div>
+        ))}
       </div>
 
       <div className={s.list}>
         {list.map((m) => {
-          const card = cardMap.get(m.id)
+          const card = cardById.get(m.id)
           if (!card) return null
           const acc = m.total ? Math.round(((m.total - m.wrong) / m.total) * 100) : 0
           return (
             <div key={m.id} className={s.item}>
-              <span className={`${s.kana} jp`}>{card.faces.hiragana}</span>
+              <span className={`${s.kana} jp`}>{card.hiragana}</span>
               <div className={s.info}>
                 <div className={s.line1}>
-                  <span className="jp">{card.faces.katakana}</span>
-                  <span className={`${s.romaji} mono`}>{card.faces.romaji}</span>
+                  <span className="jp">{card.katakana}</span>
+                  <span className={`${s.romaji} mono`}>{card.romaji.hepburn}</span>
                 </div>
                 <div className={s.line2}>
                   错 {m.wrong} 次 · 共 {m.total} 次 · 正确率 {acc}%
